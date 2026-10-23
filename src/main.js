@@ -34,9 +34,11 @@ const dom = {
   labels: $('labels'),
   freeReticle: $('freeReticle'),
   viewMode: $('viewMode'),
+  partPanel: $('partPanel'),
   partList: $('partList'),
   partCount: $('partCount'),
   labelToggle: $('labelToggle'),
+  mobilePartsBtn: $('mobilePartsBtn'),
   infoPanel: $('infoPanel'),
   infoContent: $('infoContent'),
   modeLabel: $('modeLabel'),
@@ -245,6 +247,7 @@ function init() {
 
   camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.01, 40);
   applyDefaultCamera(false);
+  updateViewportFraming();
 
   // Studio environment reflections, generated from a dark room with softboxes.
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -716,7 +719,8 @@ function renderDefaultInfo() {
     <div class="empty-number">${PART_DATA.length}</div>
     <div class="empty-copy">
       <h3>点击部件，查看装载结构</h3>
-      <p>从左侧索引或直接点击机箱上的任意模块。部件会从装配位置弹出，这里同步显示它的定位方式、紧固件与拆装提示。</p>
+      <p>从左侧索引、底部「部件」入口或直接点击机箱上的任意模块。部件会进入独显特写，这里同步显示它的定位方式、紧固件与拆装提示。</p>
+      <p class="mobile-only-copy">手机端：单指拖动旋转视角，点按部件进入独显，底部「部件」可打开完整索引。</p>
     </div>
     <div class="empty-stats">
       <div class="empty-stat"><b>0</b><span>无立柱</span></div>
@@ -923,6 +927,7 @@ function setSelected(id) {
     for (const part of PART_DATA) parts[part.id].group.visible = true;
   }
   state.selectedId = id;
+  document.body.classList.toggle('has-selection', Boolean(id));
 
   for (const [partId, row] of rows) {
     row.classList.toggle('selected', partId === id);
@@ -1001,6 +1006,7 @@ function exitSoloView({ restoreView = true, notify = true } = {}) {
 
 function handlePartPick(id) {
   if (!PART_BY_ID[id]) return;
+  closeMobileParts();
   if (tour.active) stopTour(false);
   if (state.soloMode && state.selectedId === id) {
     focusPart(id);
@@ -1101,6 +1107,20 @@ function updateExplodeUI() {
 /* ------------------------------------------------------------------ */
 /* Camera                                                              */
 /* ------------------------------------------------------------------ */
+function updateViewportFraming() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const mobilePortrait = width <= 820 && height > width;
+  if (mobilePortrait) {
+    // Keep the chassis above the mobile info sheet and dock.
+    const offset = Math.round(height * 0.21);
+    camera.setViewOffset(width, height, 0, offset, width, height);
+  } else {
+    camera.clearViewOffset();
+  }
+  camera.updateProjectionMatrix();
+}
+
 function computeDefaultView() {
   const aspect = window.innerWidth / window.innerHeight;
   let fov = 36;
@@ -1549,6 +1569,11 @@ function updatePointerFromEvent(event) {
 
 function onPointerDown(event) {
   if (event.target !== dom.canvas) return;
+  if (dom.partPanel.classList.contains('mobile-open')) {
+    closeMobileParts();
+    event.preventDefault();
+    return;
+  }
   updatePointerFromEvent(event);
 
   if (event.button === 2) {
@@ -1938,6 +1963,29 @@ function toggleLabels() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Mobile component drawer                                             */
+/* ------------------------------------------------------------------ */
+function isMobilePartsAvailable() {
+  return window.innerWidth <= 820 || (window.innerWidth <= 950 && window.innerHeight <= 500);
+}
+
+function closeMobileParts() {
+  dom.partPanel.classList.remove('mobile-open');
+  dom.mobilePartsBtn.classList.remove('active');
+  dom.mobilePartsBtn.setAttribute('aria-expanded', 'false');
+}
+
+function toggleMobileParts() {
+  if (!isMobilePartsAvailable()) return;
+  if (state.freeLook) exitFreeLook({ silent: true });
+  const open = !dom.partPanel.classList.contains('mobile-open');
+  dom.partPanel.classList.toggle('mobile-open', open);
+  dom.mobilePartsBtn.classList.toggle('active', open);
+  dom.mobilePartsBtn.setAttribute('aria-expanded', String(open));
+  if (open) hideHover();
+}
+
+/* ------------------------------------------------------------------ */
 /* Guide                                                               */
 /* ------------------------------------------------------------------ */
 function renderGuide() {
@@ -2015,6 +2063,7 @@ function bindEvents() {
   });
 
   dom.labelToggle.addEventListener('click', toggleLabels);
+  dom.mobilePartsBtn.addEventListener('click', toggleMobileParts);
 
   dom.explodeBtn.addEventListener('click', () => {
     if (state.freeLook) exitFreeLook({ silent: true });
@@ -2062,6 +2111,8 @@ function onResize() {
   renderer.setSize(width, height);
   composer.setPixelRatio(renderer.getPixelRatio());
   composer.setSize(width, height);
+  updateViewportFraming();
+  if (!isMobilePartsAvailable()) closeMobileParts();
   pointerDirty = true;
 }
 

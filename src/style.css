@@ -1508,6 +1508,14 @@ body.ready .dock {
     transform 0.22s ease;
 }
 
+.dock-button.mobile-only {
+  display: none;
+}
+
+.mobile-only-copy {
+  display: none;
+}
+
 .dock-button:hover {
   background: rgba(54, 112, 154, 0.16);
   border-color: rgba(109, 189, 235, 0.12);
@@ -2500,7 +2508,7 @@ body.ready .dock {
     right: 12px;
     bottom: 108px;
     width: auto;
-    max-height: 42vh;
+    max-height: 38vh;
     border-radius: 14px;
   }
 
@@ -2548,7 +2556,45 @@ body.ready .dock {
     flex: 1;
     min-width: 0;
     justify-content: center;
-    padding: 7px 5px;
+    padding: 6px 2px;
+    gap: 3px;
+  }
+
+  .dock-button.mobile-only {
+    display: flex;
+  }
+
+  .mobile-only-copy {
+    display: block;
+    margin-top: 7px !important;
+    padding-top: 7px;
+    border-top: 1px solid rgba(117, 172, 219, 0.1);
+    font-size: 9.3px !important;
+    color: #7591a9 !important;
+  }
+
+  .part-panel.mobile-open {
+    display: flex;
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: 84px;
+    bottom: auto;
+    width: auto;
+    max-height: 50vh;
+    z-index: 40;
+    opacity: 1;
+    transform: none;
+    animation: none;
+    background:
+      linear-gradient(160deg, rgba(13, 26, 43, 0.98), rgba(4, 10, 18, 0.98));
+    box-shadow:
+      0 30px 80px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .part-panel.mobile-open .part-list {
+    max-height: 34vh;
   }
 
   .button-copy {
@@ -2556,12 +2602,23 @@ body.ready .dock {
   }
 
   .button-copy b {
-    font-size: 9.5px;
+    font-size: 9.2px;
   }
 
-  .button-icon {
-    width: 19px;
-    height: 19px;
+  .dock-button .button-icon {
+    display: none;
+  }
+
+  .part-panel.mobile-open ~ .info-panel {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  body.ready .part-panel.mobile-open {
+    opacity: 1;
+    transform: none;
+    animation: none;
   }
 
   .toast {
@@ -2611,6 +2668,16 @@ body.ready .dock {
   }
 }
 
+@media (max-width: 360px) {
+  .dock-button {
+    padding: 8px 1px;
+  }
+
+  .button-copy b {
+    font-size: 9px;
+  }
+}
+
 @media (max-height: 760px) and (min-width: 821px) {
   .part-panel,
   .info-panel {
@@ -2628,6 +2695,69 @@ body.ready .dock {
 
   .dock {
     bottom: 14px;
+  }
+}
+
+/* Phone held in landscape: keep the case unobstructed until a part is picked. */
+@media (max-width: 950px) and (max-height: 500px) {
+  .info-panel {
+    display: none;
+  }
+
+  body.has-selection .info-panel {
+    display: block;
+    left: auto;
+    right: 12px;
+    top: 68px;
+    bottom: 72px;
+    width: 278px;
+    max-height: none;
+    z-index: 28;
+    opacity: 1;
+    visibility: visible;
+    animation: none;
+    border-radius: 14px;
+  }
+
+  body.has-selection .info-content {
+    padding: 14px 15px;
+  }
+
+  .dock-button.mobile-only {
+    display: flex;
+  }
+
+  .part-panel.mobile-open {
+    display: flex;
+    position: fixed;
+    left: 12px;
+    top: 68px;
+    bottom: 72px;
+    width: 300px;
+    max-height: none;
+    z-index: 40;
+    opacity: 1;
+    transform: none;
+    animation: none;
+    background:
+      linear-gradient(160deg, rgba(13, 26, 43, 0.98), rgba(4, 10, 18, 0.98));
+    box-shadow:
+      0 30px 80px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .part-panel.mobile-open .part-list {
+    max-height: calc(100vh - 250px);
+  }
+
+  .part-panel.mobile-open ~ .info-panel {
+    display: none;
+  }
+
+  body.ready .part-panel.mobile-open {
+    opacity: 1;
+    transform: none;
+    animation: none;
   }
 }
 
