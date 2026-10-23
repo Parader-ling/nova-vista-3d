@@ -1086,6 +1086,123 @@ body.ready .info-panel {
   color: #86b8cf;
 }
 
+.finish-palette {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.finish-swatch {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  padding: 2px;
+  border: 1px solid rgba(155, 190, 218, 0.2);
+  border-radius: 50%;
+  background: rgba(7, 16, 27, 0.5);
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.finish-swatch span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.35),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.28);
+}
+
+.finish-swatch:hover {
+  transform: translateY(-1px) scale(1.05);
+  border-color: rgba(177, 226, 255, 0.55);
+}
+
+.finish-swatch.active {
+  border-color: rgba(122, 240, 255, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(8, 18, 29, 0.9),
+    0 0 12px rgba(93, 229, 255, 0.4);
+}
+
+.finish-reset {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(140, 183, 216, 0.2);
+  border-radius: 12px;
+  background: rgba(11, 24, 38, 0.5);
+  font-size: 7.5px;
+  letter-spacing: 0.06em;
+  color: #7e9ab2;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.finish-reset:hover,
+.finish-reset.active {
+  color: var(--cyan-soft);
+  border-color: rgba(103, 233, 255, 0.42);
+}
+
+.finish-caption {
+  margin-top: 7px;
+  font-size: 8px;
+  line-height: 1.6;
+  color: #607b93;
+}
+
+.finish-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  color: #4f6b83;
+}
+
+.finish-current b {
+  font-weight: 500;
+  color: #b4d2e4;
+}
+
+.solo-exit-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  height: 33px;
+  margin-top: 9px;
+  border: 1px solid rgba(120, 207, 255, 0.24);
+  border-radius: 7px;
+  background: linear-gradient(100deg, rgba(32, 82, 109, 0.35), rgba(64, 55, 112, 0.24));
+  font-size: 8.8px;
+  letter-spacing: 0.06em;
+  color: #b9dff1;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.solo-exit-button svg {
+  width: 13px;
+  height: 13px;
+}
+
+.solo-exit-button:hover {
+  border-color: rgba(103, 233, 255, 0.52);
+  background: linear-gradient(100deg, rgba(38, 112, 141, 0.42), rgba(84, 68, 148, 0.3));
+}
+
 .detail-actions {
   display: flex;
   gap: 6px;
@@ -1190,6 +1307,12 @@ body.ready .nav-hint {
 
 .nav-persp {
   color: #7894ad;
+  transition: color 0.2s ease;
+}
+
+.nav-persp.free {
+  color: var(--cyan);
+  text-shadow: 0 0 8px rgba(103, 233, 255, 0.6);
 }
 
 .nav-keys {
@@ -1522,6 +1645,69 @@ body.ready .dock {
   border-left: 1px solid rgba(120, 183, 231, 0.17);
   font-size: 7.5px;
   color: #6e8aa4;
+}
+
+.free-reticle {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: none;
+  pointer-events: none;
+}
+
+.free-reticle.active {
+  display: block;
+}
+
+.reticle-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(232, 252, 255, 0.95);
+  box-shadow:
+    0 0 9px rgba(99, 235, 255, 0.9),
+    0 0 28px rgba(99, 235, 255, 0.35);
+  transform: translate(-50%, -50%);
+}
+
+.reticle-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(129, 230, 255, 0.4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: inset 0 0 12px rgba(97, 219, 255, 0.12);
+}
+
+.free-reticle em {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 23px);
+  transform: translateX(-50%);
+  padding: 4px 9px;
+  border: 1px solid rgba(112, 202, 240, 0.14);
+  border-radius: 20px;
+  background: rgba(4, 13, 22, 0.55);
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-size: 7px;
+  letter-spacing: 0.09em;
+  color: #75a3bd;
+  white-space: nowrap;
+}
+
+#app.free-look #scene {
+  cursor: crosshair;
+}
+
+.nav-persp.free {
+  color: var(--cyan);
 }
 
 .labels {

@@ -33,6 +33,13 @@
       <!-- 3D projected labels -->
       <div id="labels" class="labels" aria-hidden="true"></div>
 
+      <!-- Free-look reticle -->
+      <div id="freeReticle" class="free-reticle" aria-hidden="true">
+        <span class="reticle-dot"></span>
+        <span class="reticle-ring"></span>
+        <em>FREE LOOK · 左键选中 / 右键退出</em>
+      </div>
+
       <!-- Header -->
       <header class="topbar">
         <div class="brand">
@@ -120,10 +127,10 @@
           <span class="nav-pip"></span>
           <span>UE-STYLE NAVIGATION</span>
           <span class="nav-sep"></span>
-          <span class="nav-persp">PERSPECTIVE</span>
+          <span class="nav-persp" id="viewMode">PERSPECTIVE</span>
         </div>
         <div class="nav-keys">
-          <span class="key-group"><kbd>RMB</kbd>旋转</span>
+          <span class="key-group"><kbd>RMB</kbd>自由视角</span>
           <span class="key-group"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>移动</span>
           <span class="key-group"><kbd>Q</kbd><kbd>E</kbd>环绕</span>
           <span class="key-group"><kbd>SPACE</kbd><kbd>C</kbd>升降</span>

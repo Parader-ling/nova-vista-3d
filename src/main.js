@@ -32,6 +32,8 @@ const dom = {
   hoverIndex: $('hoverIndex'),
   hoverName: $('hoverName'),
   labels: $('labels'),
+  freeReticle: $('freeReticle'),
+  viewMode: $('viewMode'),
   partList: $('partList'),
   partCount: $('partCount'),
   labelToggle: $('labelToggle'),
@@ -65,7 +67,17 @@ const ICON = {
   pop: `<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2.6v8.1M6.8 7.4 10 10.7l3.2-3.3M4 12.2v3.5c0 .8.6 1.4 1.4 1.4h9.2c.8 0 1.4-.6 1.4-1.4v-3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   assemble: `<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 17.2V9.1M6.8 12.4 10 9.1l3.2 3.3M4 7.6V4.1c0-.8.6-1.4 1.4-1.4h9.2c.8 0 1.4.6 1.4 1.4v3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   arrow: `<svg class="step-arrow" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  back: `<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h9.5M10 5.5 5.5 10l4.5 4.5M15.5 4v12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
 };
+
+const FINISH_PRESETS = [
+  { name: '云母白', color: '#eee9e0' },
+  { name: '曜石黑', color: '#20242a' },
+  { name: '香槟金', color: '#c9a978' },
+  { name: '冰川蓝', color: '#7c97ad' },
+  { name: '勃艮第红', color: '#6f2f3d' },
+  { name: '钛灰', color: '#7c838a' },
+];
 
 const FOCUS_DIRECTION = {
   frontGlass: [0.22, 0.16, 1],
@@ -128,6 +140,8 @@ const state = {
   pointerInside: false,
   ready: false,
   viewSpeed: 1,
+  freeLook: false,
+  soloMode: false,
 };
 
 let yaw = 0;
@@ -171,7 +185,12 @@ let lookLastY = 0;
 let lookDistance = 0;
 let clickCandidate = null;
 let wheelSpeedAccum = 0;
+let pointerLocked = false;
+let freeLookGuardUntil = 0;
+let soloSavedView = null;
 let keys = new Set();
+const partTints = new Map();
+const partTintEntries = new Map();
 let explodeTimers = [];
 let toastTimer = null;
 let fpsTime = 0;
@@ -705,7 +724,7 @@ function renderDefaultInfo() {
       <div class="empty-stat"><b>360</b><span>顶部冷排</span></div>
     </div>
     <div class="empty-controls">
-      <div class="empty-control-line"><span><kbd>RMB</kbd> 按住拖拽</span><span>旋转视角</span></div>
+      <div class="empty-control-line"><span><kbd>LMB</kbd> 部件独显</span><span><kbd>RMB</kbd> 自由视角</span></div>
       <div class="empty-control-line"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动</span><span><kbd>Q</kbd><kbd>E</kbd> 环绕机箱</span></div>
       <div class="empty-control-line"><span><kbd>SPACE</kbd><kbd>C</kbd> 升降</span><span><kbd>滚轮</kbd> 视角速度</span></div>
       <div class="empty-control-line"><span><kbd>F</kbd> 聚焦选中</span><span><kbd>R</kbd> 复位视口</span></div>
@@ -731,6 +750,19 @@ function renderInfo(id) {
     .join('');
   const fixes = part.fix.map((item) => `<li>${item}</li>`).join('');
   const statusLabel = isFrame ? '固定结构' : isOut ? '已弹出' : '已就位';
+  const activeTint = partTints.get(id) || null;
+  const activePreset = FINISH_PRESETS.find((preset) => preset.color.toLowerCase() === (activeTint || '').toLowerCase());
+  const swatches = FINISH_PRESETS.map(
+    (preset) => `
+      <button
+        class="finish-swatch${activeTint && activeTint.toLowerCase() === preset.color.toLowerCase() ? ' active' : ''}"
+        type="button"
+        style="--swatch:${preset.color}"
+        data-tint="${preset.color}"
+        title="${preset.name} · ${preset.color}"
+        aria-label="应用${preset.name}"
+      ><span></span></button>`
+  ).join('');
 
   dom.infoContent.innerHTML = `
     <div class="detail-top">
@@ -749,6 +781,11 @@ function renderInfo(id) {
       <span>${part.chip}</span>
       <span>${part.summary}</span>
     </div>
+    ${
+      state.soloMode
+        ? `<button class="solo-exit-button" type="button" data-exit-solo>${ICON.back}退出独显 · 返回全景</button>`
+        : ''
+    }
 
     <div class="detail-block">
       <div class="block-head"><span>01</span><h4>安装位置</h4></div>
@@ -763,6 +800,16 @@ function renderInfo(id) {
     <div class="detail-block">
       <div class="block-head"><span>03</span><h4>关键规格</h4></div>
       <div class="detail-stats">${stats}</div>
+    </div>
+
+    <div class="detail-block">
+      <div class="block-head"><span>04</span><h4>高级配色</h4></div>
+      <div class="finish-palette">
+        ${swatches}
+        <button class="finish-reset${!activeTint ? ' active' : ''}" type="button" data-tint="reset">原色</button>
+      </div>
+      <div class="finish-current"><span>FINISH</span><b>${activePreset ? activePreset.name : '原厂色'}</b></div>
+      <div class="finish-caption">仅作用于当前部件的浅色外壳与金属件，不改动灯效、屏幕与纹理。</div>
     </div>
 
     <div class="tip-box">${part.tip}</div>
@@ -785,13 +832,96 @@ function renderInfo(id) {
     </div>
   `;
 
-  dom.infoContent.querySelector('[data-info-close]')?.addEventListener('click', () => setSelected(null));
+  dom.infoContent.querySelector('[data-info-close]')?.addEventListener('click', () => {
+    if (state.soloMode) exitSoloView();
+    else setSelected(null);
+  });
   dom.infoContent.querySelector('[data-focus]')?.addEventListener('click', () => focusPart(id));
   dom.infoContent.querySelector('[data-pop]')?.addEventListener('click', () => togglePart(id));
+  dom.infoContent.querySelector('[data-exit-solo]')?.addEventListener('click', () => exitSoloView());
+  dom.infoContent.querySelectorAll('[data-tint]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const scrollTop = dom.infoPanel.scrollTop;
+      applyPartTint(id, button.dataset.tint || 'reset');
+      renderInfo(id);
+      dom.infoPanel.scrollTop = scrollTop;
+    });
+  });
+}
+
+function isTintableMaterial(material) {
+  if (!material || Array.isArray(material)) return false;
+  if (material.isMeshBasicMaterial || material.transparent) return false;
+  if (!material.isMeshStandardMaterial && !material.isMeshPhysicalMaterial) return false;
+  if (material.map) return false;
+  if (material.emissive && material.emissive.r + material.emissive.g + material.emissive.b > 0.02) return false;
+  if (!material.color) return false;
+  const luminance = material.color.r * 0.2126 + material.color.g * 0.7152 + material.color.b * 0.0722;
+  return luminance > 0.24;
+}
+
+function buildTintEntries(id) {
+  const part = parts[id];
+  if (!part) return [];
+  const entries = [];
+  part.group.traverse((object) => {
+    if (!object.isMesh) return;
+    const material = object.material;
+    if (!isTintableMaterial(material)) return;
+    const clone = material.clone();
+    object.material = clone;
+    entries.push({
+      mesh: object,
+      original: material,
+      material: clone,
+      baseColor: material.color.clone(),
+    });
+  });
+  partTintEntries.set(id, entries);
+  return entries;
+}
+
+function applyPartTint(id, value) {
+  if (!parts[id]) return;
+  if (value === 'reset') {
+    const entries = partTintEntries.get(id);
+    if (entries) {
+      for (const entry of entries) {
+        entry.mesh.material = entry.original;
+        entry.material.dispose();
+      }
+    }
+    partTintEntries.delete(id);
+    partTints.delete(id);
+    showToast('已恢复原厂色', 1600);
+    return;
+  }
+
+  let entries = partTintEntries.get(id);
+  if (!entries || entries.length === 0) entries = buildTintEntries(id);
+  if (entries.length === 0) {
+    partTints.delete(id);
+    showToast('该部件没有可改色的外壳材质', 2200);
+    return;
+  }
+
+  const target = new THREE.Color(value);
+  for (const entry of entries) {
+    entry.material.color.copy(entry.baseColor).lerp(target, 0.84);
+  }
+  partTints.set(id, value);
+  const preset = FINISH_PRESETS.find((item) => item.color.toLowerCase() === value.toLowerCase());
+  showToast(`已应用 ${preset ? preset.name : '自定义色'} · ${PART_BY_ID[id].name}`, 1700);
 }
 
 function setSelected(id) {
   if (id && !PART_BY_ID[id]) return;
+  if (!id && state.soloMode) {
+    // Safety net for paths that deselect without an explicit solo exit.
+    state.soloMode = false;
+    soloSavedView = null;
+    for (const part of PART_DATA) parts[part.id].group.visible = true;
+  }
   state.selectedId = id;
 
   for (const [partId, row] of rows) {
@@ -818,23 +948,65 @@ function refreshInfo(id = state.selectedId) {
 /* ------------------------------------------------------------------ */
 /* Part interaction                                                    */
 /* ------------------------------------------------------------------ */
+function rememberCameraView() {
+  camera.getWorldDirection(cameraForward);
+  return {
+    position: camera.position.clone(),
+    target: camera.position.clone().addScaledVector(cameraForward, 2.6),
+  };
+}
+
+function enterSoloPart(id) {
+  if (!parts[id]) return;
+  if (tour.active) stopTour(false);
+  if (cameraAnim) {
+    cameraAnim = null;
+    syncAngles();
+  }
+  if (state.freeLook) exitFreeLook({ silent: true });
+  if (!state.soloMode) soloSavedView = rememberCameraView();
+
+  state.soloMode = true;
+  for (const part of PART_DATA) {
+    parts[part.id].group.visible = part.id === id;
+  }
+  if (id !== 'frame' && parts[id].target < 0.5) {
+    parts[id].target = 1;
+  }
+
+  setSelected(id);
+  updateExplodeUI();
+  focusPart(id, { notify: false });
+  showToast(`部件独显 · ${PART_BY_ID[id].name}`, 2000);
+}
+
+function exitSoloView({ restoreView = true, notify = true } = {}) {
+  if (!state.soloMode) {
+    setSelected(null);
+    return;
+  }
+  const saved = soloSavedView;
+  state.soloMode = false;
+  soloSavedView = null;
+  for (const part of PART_DATA) {
+    parts[part.id].group.visible = true;
+  }
+  setSelected(null);
+  updateExplodeUI();
+  if (restoreView && saved) {
+    flyTo(saved.position, saved.target, 0.7);
+  }
+  if (notify) showToast('已退出独显 · 返回全景', 1800);
+}
+
 function handlePartPick(id) {
   if (!PART_BY_ID[id]) return;
   if (tour.active) stopTour(false);
-
-  const wasSelected = state.selectedId === id;
-  if (!wasSelected) {
-    setSelected(id);
-    if (id !== 'frame' && parts[id].target < 0.5) {
-      parts[id].target = 1;
-      updateExplodeUI();
-      refreshInfo(id);
-    }
-  } else if (id === 'frame') {
-    refreshInfo(id);
-  } else {
-    togglePart(id);
+  if (state.soloMode && state.selectedId === id) {
+    focusPart(id);
+    return;
   }
+  enterSoloPart(id);
 }
 
 function togglePart(id) {
@@ -856,6 +1028,8 @@ function clearExplodeTimers() {
 }
 
 function explodeAll() {
+  if (state.freeLook) exitFreeLook({ silent: true });
+  if (state.soloMode) exitSoloView({ restoreView: false, notify: false });
   if (tour.active) stopTour(false);
   clearExplodeTimers();
   const pending = PART_DATA.filter((part) => part.id !== 'frame' && parts[part.id].target < 0.5);
@@ -901,7 +1075,11 @@ function updateExplodeUI() {
     row.classList.toggle('exploded', parts[id].target > 0.5);
   }
 
-  if (tour.active) {
+  if (state.soloMode && state.selectedId) {
+    dom.modeLabel.textContent = '部件独显';
+    dom.dockState.textContent = '独显视图';
+    dom.dockCount.textContent = PART_BY_ID[state.selectedId]?.name || '';
+  } else if (tour.active) {
     dom.modeLabel.textContent = '自动巡展';
     dom.dockState.textContent = '自动巡展';
     dom.dockCount.textContent = `${outCount} / ${selectable.length} 个模块展开`;
@@ -1016,7 +1194,7 @@ function flyTo(position, target, duration = 0.65) {
   };
 }
 
-function focusPart(id) {
+function focusPart(id, { notify = true } = {}) {
   if (!parts[id]) return;
   stopTour(false);
   const part = parts[id];
@@ -1036,7 +1214,7 @@ function focusPart(id) {
   const position = center.clone().addScaledVector(direction, distance);
   position.y = Math.max(position.y, 0.16);
   flyTo(position, center, 0.6);
-  showToast(`已定位到 ${PART_BY_ID[id].name}`, 1800);
+  if (notify) showToast(`已定位到 ${PART_BY_ID[id].name}`, 1800);
 }
 
 function startTour() {
@@ -1044,6 +1222,8 @@ function startTour() {
     stopTour();
     return;
   }
+  if (state.freeLook) exitFreeLook({ silent: true });
+  if (state.soloMode) exitSoloView({ restoreView: false, notify: false });
   closeGuide();
   setSelected(null);
   retractAll({ silent: true });
@@ -1091,6 +1271,8 @@ function setTourUI(active) {
 }
 
 function resetView() {
+  if (state.freeLook) exitFreeLook({ silent: true });
+  if (state.soloMode) exitSoloView({ restoreView: false, notify: false });
   clearExplodeTimers();
   stopTour(false);
   retractAll({ silent: true });
@@ -1286,6 +1468,77 @@ function updateTour(dt) {
 /* ------------------------------------------------------------------ */
 /* Pointer & keyboard                                                  */
 /* ------------------------------------------------------------------ */
+function enterFreeLook() {
+  if (state.freeLook) return;
+  stopTour(false);
+  if (cameraAnim) {
+    cameraAnim = null;
+    syncAngles();
+  }
+  orbitAngularVelocity = 0;
+  syncLookTargetsToCurrent();
+
+  state.freeLook = true;
+  freeLookGuardUntil = performance.now() + 180;
+  lookLastX = pointerClientX;
+  lookLastY = pointerClientY;
+  dom.app.classList.add('free-look');
+  dom.canvas.classList.add('is-free-look');
+  dom.freeReticle.classList.add('active');
+  dom.viewMode.textContent = 'FREE LOOK';
+  dom.viewMode.classList.add('free');
+  hideHover();
+  pointerDirty = false;
+
+  try {
+    const request = dom.canvas.requestPointerLock?.({ unadjustedMovement: true });
+    if (request && typeof request.catch === 'function') request.catch(() => {});
+  } catch {
+    /* fall back to canvas-relative mouse look */
+  }
+
+  showToast('自由视角已开启 · 移动鼠标旋转 / 左键选中 / 右键或 Esc 退出', 3200);
+}
+
+function exitFreeLook({ silent = false } = {}) {
+  if (!state.freeLook) return;
+  state.freeLook = false;
+  dom.app.classList.remove('free-look');
+  dom.canvas.classList.remove('is-free-look');
+  dom.freeReticle.classList.remove('active');
+  dom.viewMode.textContent = 'PERSPECTIVE';
+  dom.viewMode.classList.remove('free');
+  if (document.pointerLockElement === dom.canvas) {
+    try {
+      document.exitPointerLock();
+    } catch {
+      /* noop */
+    }
+  }
+  if (!silent) showToast('已退出自由视角', 1600);
+}
+
+function onPointerLockChange() {
+  const locked = document.pointerLockElement === dom.canvas;
+  const wasLocked = pointerLocked;
+  pointerLocked = locked;
+  if (locked && state.freeLook) {
+    // Chrome can emit a large recenter delta when pointer lock engages.
+    freeLookGuardUntil = performance.now() + 150;
+  }
+  if (!locked && wasLocked && state.freeLook) {
+    exitFreeLook({ silent: true });
+    showToast('已退出自由视角', 1500);
+  }
+}
+
+function onPointerLockError() {
+  pointerLocked = false;
+  if (state.freeLook) {
+    showToast('自由视角已开启 · 鼠标未锁定，移动鼠标即可旋转', 2800);
+  }
+}
+
 function updatePointerFromEvent(event) {
   const rect = dom.canvas.getBoundingClientRect();
   pointerClientX = event.clientX;
@@ -1300,25 +1553,8 @@ function onPointerDown(event) {
 
   if (event.button === 2) {
     event.preventDefault();
-    stopTour(false);
-    if (cameraAnim) {
-      cameraAnim = null;
-      syncAngles();
-    }
-    orbitAngularVelocity = 0;
-    syncLookTargetsToCurrent();
-    state.isLooking = true;
-    pointerId = event.pointerId;
-    lookLastX = event.clientX;
-    lookLastY = event.clientY;
-    lookDistance = 0;
-    dom.canvas.classList.add('is-looking');
-    hideHover();
-    try {
-      dom.canvas.setPointerCapture(event.pointerId);
-    } catch {
-      /* noop */
-    }
+    if (state.freeLook) exitFreeLook();
+    else enterFreeLook();
     return;
   }
 
@@ -1330,6 +1566,10 @@ function onPointerDown(event) {
       moved: 0,
       touch: event.pointerType === 'touch',
     };
+    if (state.freeLook) {
+      event.preventDefault();
+      return;
+    }
     if (event.pointerType === 'touch') {
       if (tour.active) stopTour(false);
       if (cameraAnim) {
@@ -1356,6 +1596,29 @@ function onPointerDown(event) {
 }
 
 function onPointerMove(event) {
+  if (state.freeLook) {
+    if (!pointerLocked) updatePointerFromEvent(event);
+    const dx = pointerLocked ? event.movementX || 0 : event.clientX - lookLastX;
+    const dy = pointerLocked ? event.movementY || 0 : event.clientY - lookLastY;
+    lookLastX = event.clientX;
+    lookLastY = event.clientY;
+    if (performance.now() < freeLookGuardUntil) {
+      hideHover();
+      return;
+    }
+    if (dx !== 0 || dy !== 0) {
+      const sensitivity = 0.00258 * state.viewSpeed;
+      yawTarget -= dx * sensitivity;
+      pitchTarget = THREE.MathUtils.clamp(pitchTarget - dy * sensitivity, -1.42, 1.42);
+      if (clickCandidate) clickCandidate.moved += Math.hypot(dx, dy);
+      cameraAnim = null;
+    }
+    state.pointerInside = true;
+    pointerDirty = false;
+    hideHover();
+    return;
+  }
+
   updatePointerFromEvent(event);
 
   if (state.isLooking) {
@@ -1385,6 +1648,7 @@ function onPointerMove(event) {
 
 function onPointerUp(event) {
   const wasLooking = state.isLooking;
+  const wasFreeLook = state.freeLook;
   const candidate = clickCandidate;
   const dragDistance = lookDistance;
 
@@ -1400,6 +1664,18 @@ function onPointerUp(event) {
     } catch {
       /* noop */
     }
+  }
+
+  if (wasFreeLook && candidate && !candidate.touch) {
+    if (candidate.moved < 8) {
+      const ndc = pointerLocked ? new THREE.Vector2(0, 0) : pointerNdc;
+      const id = pickPart(ndc);
+      if (id) {
+        exitFreeLook({ silent: true });
+        handlePartPick(id);
+      }
+    }
+    return;
   }
 
   const shouldSelect =
@@ -1453,8 +1729,12 @@ function pickAtPointer(event) {
   updatePointerFromEvent(event);
   const id = pickPart(pointerNdc);
   if (!id) {
-    setSelected(null);
-    showToast('已取消选择', 1400);
+    if (state.soloMode) {
+      exitSoloView();
+    } else {
+      setSelected(null);
+      showToast('已取消选择', 1400);
+    }
     return;
   }
   handlePartPick(id);
@@ -1462,7 +1742,11 @@ function pickAtPointer(event) {
 
 function pickPart(ndc) {
   raycaster.setFromCamera(ndc, camera);
-  const hits = raycaster.intersectObjects(selectableGroups, true).filter((hit) => hit.object.visible);
+  const hits = raycaster.intersectObjects(selectableGroups, true).filter((hit) => {
+    if (!hit.object.visible) return false;
+    const id = resolvePartId(hit.object);
+    return Boolean(id && parts[id] && parts[id].group.visible);
+  });
   if (hits.length === 0) return null;
 
   let chosen = hits[0];
@@ -1488,8 +1772,12 @@ function resolvePartId(object) {
 
 function onKeyDown(event) {
   if (event.code === 'Escape') {
-    if (dom.guideModal.classList.contains('open')) {
+    if (state.freeLook) {
+      exitFreeLook();
+    } else if (dom.guideModal.classList.contains('open')) {
       closeGuide();
+    } else if (state.soloMode) {
+      exitSoloView();
     } else if (state.selectedId) {
       setSelected(null);
     }
@@ -1561,7 +1849,7 @@ function hideHover() {
 }
 
 function updateHover() {
-  if (!pointerDirty || !state.pointerInside || state.isLooking || tour.active) return;
+  if (!pointerDirty || !state.pointerInside || state.isLooking || state.freeLook || tour.active) return;
   pointerDirty = false;
   const id = pickPart(pointerNdc);
   setHovered(id);
@@ -1612,7 +1900,9 @@ function updateLabels() {
     const runtime = parts[part.id];
     if (!el || !runtime) continue;
 
-    const shouldShow = state.labelsVisible && (runtime.explode > 0.14 || state.selectedId === part.id);
+    const shouldShow =
+      state.labelsVisible &&
+      (state.soloMode ? state.selectedId === part.id : runtime.explode > 0.14 || state.selectedId === part.id);
     if (!shouldShow) {
       el.classList.remove('visible');
       continue;
@@ -1675,19 +1965,19 @@ function renderGuide() {
       const step = BUILD_STEPS[Number(button.dataset.step)];
       if (!step) return;
       closeGuide();
-      const id = step.parts[0];
-      setSelected(id);
-      if (id !== 'frame' && parts[id].target < 0.5) parts[id].target = 1;
-      updateExplodeUI();
-      refreshInfo(id);
-      focusPart(id);
+      enterSoloPart(step.parts[0]);
     });
   });
 }
 
 function openGuide() {
-  stopTour(false);
-  cameraAnim = null;
+  if (state.freeLook) exitFreeLook({ silent: true });
+  if (state.soloMode) {
+    exitSoloView();
+  } else {
+    stopTour(false);
+    cameraAnim = null;
+  }
   dom.guideModal.classList.add('open');
   dom.guideModal.setAttribute('aria-hidden', 'false');
 }
@@ -1706,9 +1996,13 @@ function bindEvents() {
   dom.canvas.addEventListener('pointerup', onPointerUp);
   dom.canvas.addEventListener('pointercancel', onPointerUp);
   dom.canvas.addEventListener('pointerleave', onPointerLeave);
-  dom.canvas.addEventListener('pointerenter', () => {
+  dom.canvas.addEventListener('pointerenter', (event) => {
     state.pointerInside = true;
+    lookLastX = event.clientX;
+    lookLastY = event.clientY;
   });
+  document.addEventListener('pointerlockchange', onPointerLockChange);
+  document.addEventListener('pointerlockerror', onPointerLockError);
   dom.canvas.addEventListener('wheel', onWheel, { passive: false });
   dom.canvas.addEventListener('contextmenu', onContextMenu);
 
@@ -1723,6 +2017,8 @@ function bindEvents() {
   dom.labelToggle.addEventListener('click', toggleLabels);
 
   dom.explodeBtn.addEventListener('click', () => {
+    if (state.freeLook) exitFreeLook({ silent: true });
+    if (state.soloMode) exitSoloView({ restoreView: false, notify: false });
     if (allSelectableOut()) {
       stopTour(false);
       retractAll();
