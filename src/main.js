@@ -2159,6 +2159,23 @@ function updateParts(dt) {
     }
     const eased = part.explode * part.explode * (3 - 2 * part.explode);
     part.group.position.copy(part.base).addScaledVector(part.offset, eased);
+
+    // Solo parts breathe: a gentle levitation and sway, blended out on exit.
+    const floatTarget = state.soloMode && state.selectedId === part.id && part.id !== 'frame' ? 1 : 0;
+    part.floatBlend += (floatTarget - part.floatBlend) * (1 - Math.exp(-dt * 3.2));
+    if (part.floatBlend > 0.001) {
+      const blend = part.floatBlend;
+      const t = elapsed;
+      part.group.position.y += (Math.sin(t * 1.08) * 0.010 + Math.sin(t * 0.47 + 1.2) * 0.0035) * blend;
+      part.group.position.x += Math.sin(t * 0.43 + 0.7) * 0.0045 * blend;
+      part.group.position.z += Math.cos(t * 0.37 + 1.6) * 0.0035 * blend;
+      const yaw = (Math.sin(t * 0.36) * 0.075 + Math.sin(t * 0.14 + 0.4) * 0.03) * blend;
+      const tiltX = Math.sin(t * 0.27 + 0.8) * 0.012 * blend;
+      const tiltZ = Math.sin(t * 0.23 + 2.0) * 0.008 * blend;
+      part.group.rotation.set(tiltX, yaw, tiltZ);
+    } else {
+      part.group.rotation.set(0, 0, 0);
+    }
   }
 
   if (caseMaterials) {

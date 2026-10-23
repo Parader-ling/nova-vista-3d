@@ -413,6 +413,7 @@ export function buildCase() {
       offset: new THREE.Vector3(...data.offset),
       explode: 0,
       target: 0,
+      floatBlend: 0,
       anchor,
     };
     anchors[id] = anchor;
