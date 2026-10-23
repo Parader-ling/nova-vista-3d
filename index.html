@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#04070d" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23050b14'/%3E%3Cpath d='M16 5 26 11v10L16 27 6 21V11L16 5Z' fill='none' stroke='%2367e9ff' stroke-width='1.2'/%3E%3Cpath d='M6 11l10 6 10-6M16 17v10' stroke='%238f7bff' stroke-width='1'/%3E%3C/svg%3E"
+    />
+    <meta
+      name="description"
+      content="NOVA VISTA 无立柱海景房机箱 · 可拆解 3D 交互展示，UE 风格视口、逐件弹出与装配说明。"
+    />
+    <title>NOVA VISTA · 3D 可拆解机箱</title>
+  </head>
+  <body>
+    <div id="app" class="app">
+      <canvas id="scene" aria-label="NOVA VISTA 机箱三维展示"></canvas>
+
+      <div class="ambient ambient-a" aria-hidden="true"></div>
+      <div class="ambient ambient-b" aria-hidden="true"></div>
+      <div class="grain" aria-hidden="true"></div>
+      <div class="vignette" aria-hidden="true"></div>
+
+      <!-- Hover tag -->
+      <div id="hoverTip" class="hover-tip" aria-hidden="true">
+        <span class="hover-index" id="hoverIndex">01</span>
+        <span class="hover-name" id="hoverName">前面板玻璃</span>
+        <span class="hover-call">点击弹出</span>
+      </div>
+
+      <!-- 3D projected labels -->
+      <div id="labels" class="labels" aria-hidden="true"></div>
+
+      <!-- Header -->
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40" fill="none">
+              <path d="M20 3 34 11v18L20 37 6 29V11L20 3Z" stroke="url(#brandGrad)" stroke-width="1.3" />
+              <path d="M6 11l14 8 14-8M20 19v18" stroke="rgba(150,225,255,.52)" stroke-width="1" />
+              <path d="M13 15.2v9.6l7 4 7-4v-9.6" stroke="rgba(255,255,255,.8)" stroke-width="1.1" />
+              <defs>
+                <linearGradient id="brandGrad" x1="6" y1="3" x2="35" y2="38">
+                  <stop stop-color="#9cf6ff" />
+                  <stop offset="1" stop-color="#9d7bff" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <div class="brand-name">NOVA <span>VISTA</span><em>01</em></div>
+            <div class="brand-sub">无立柱海景房 · 模块化展示平台</div>
+          </div>
+        </div>
+
+        <div class="top-status">
+          <span class="live-pip"></span>
+          <span class="top-status-label">LIVE EXPLODED VIEW</span>
+          <span class="top-status-divider"></span>
+          <span id="modeLabel" class="top-status-mode">装配状态</span>
+        </div>
+
+        <div class="viewport-chip">
+          <span class="ue-dot"></span>
+          <span class="viewport-title">UE VIEWPORT</span>
+          <span class="viewport-divider"></span>
+          <span class="viewport-stat"><b id="fpsValue">60</b> FPS</span>
+        </div>
+      </header>
+
+      <!-- Component index -->
+      <aside class="panel part-panel" id="partPanel">
+        <div class="panel-glow"></div>
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">COMPONENT INDEX</div>
+            <h2>部件索引 <span class="count-pill" id="partCount">14</span></h2>
+          </div>
+          <button
+            id="labelToggle"
+            class="icon-button active"
+            type="button"
+            title="显示 / 隐藏标注"
+            aria-label="显示或隐藏部件标注"
+            aria-pressed="true"
+          >
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M3 4.5h8.2l5 5.2-7.5 6.4-5.7-6.9V4.5Z" stroke="currentColor" stroke-width="1.2" />
+              <circle cx="6.7" cy="7.6" r="1.25" stroke="currentColor" stroke-width="1.1" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="legend">
+          <span><i style="--legend: #6ce9ff"></i>外观</span>
+          <span><i style="--legend: #a58bff"></i>散热</span>
+          <span><i style="--legend: #ff6acf"></i>核心</span>
+          <span><i style="--legend: #8dffb8"></i>供电</span>
+        </div>
+
+        <div class="part-list" id="partList" role="list"></div>
+
+        <div class="panel-foot">
+          <span><span class="foot-pip"></span>点击部件弹出 / 查看装载</span>
+          <span class="scroll-mark">SCROLL</span>
+        </div>
+      </aside>
+
+      <!-- Detail panel -->
+      <aside class="panel info-panel" id="infoPanel" aria-live="polite">
+        <div class="panel-glow"></div>
+        <div id="infoContent" class="info-content"></div>
+      </aside>
+
+      <!-- Navigation hint -->
+      <div class="nav-hint">
+        <div class="nav-head">
+          <span class="nav-pip"></span>
+          <span>UE-STYLE NAVIGATION</span>
+          <span class="nav-sep"></span>
+          <span class="nav-persp">PERSPECTIVE</span>
+        </div>
+        <div class="nav-keys">
+          <span class="key-group"><kbd>RMB</kbd>旋转</span>
+          <span class="key-group"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>移动</span>
+          <span class="key-group"><kbd>Q</kbd><kbd>E</kbd>环绕</span>
+          <span class="key-group"><kbd>SPACE</kbd><kbd>C</kbd>升降</span>
+          <span class="key-group"><kbd>⇧</kbd>加速</span>
+        </div>
+        <div class="nav-coords" id="navCoords">X +0.00&nbsp;&nbsp;Y +0.00&nbsp;&nbsp;Z +0.00</div>
+        <div class="nav-meta">
+          <span>SPEED <b id="viewSpeedValue">1.0×</b></span>
+          <span>ORBIT <b id="orbitCenter">机箱</b></span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="dock">
+        <div class="dock-meta">
+          <span class="dock-pip" id="dockPip"></span>
+          <div class="dock-meta-text">
+            <b id="dockState">装配状态</b>
+            <span id="dockCount">14 / 14 个模块锁定</span>
+          </div>
+        </div>
+        <div class="dock-divider"></div>
+        <div class="dock-actions">
+          <button id="explodeBtn" class="dock-button primary" type="button">
+            <span class="button-icon">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3v5M12 16v5M3 12h5M16 12h5M6.4 6.4l3.1 3.1M14.5 14.5l3.1 3.1M17.6 6.4l-3.1 3.1M9.5 14.5l-3.1 3.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+            </span>
+            <span class="button-copy"><b>一键拆解</b><small>EXPLODE ALL</small></span>
+          </button>
+          <button id="tourBtn" class="dock-button" type="button">
+            <span class="button-icon">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="8.2" stroke="currentColor" stroke-width="1.4" />
+                <path d="m10 8.4 5.2 3.6-5.2 3.6V8.4Z" fill="currentColor" />
+              </svg>
+            </span>
+            <span class="button-copy"><b>自动巡展</b><small>SHOWCASE</small></span>
+          </button>
+          <button id="resetBtn" class="dock-button" type="button">
+            <span class="button-icon">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 8.2A8 8 0 1 1 4.4 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                <path d="M5 3.8v4.7h4.7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <span class="button-copy"><b>复位</b><small>RESET</small></span>
+          </button>
+          <button id="guideBtn" class="dock-button" type="button">
+            <span class="button-icon">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4.5 5.2c2.4-.9 4.9-.8 7.5.5 2.6-1.3 5.1-1.4 7.5-.5v12.2c-2.4-.9-4.9-.8-7.5.5-2.6-1.3-5.1-1.4-7.5-.5V5.2Z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+                <path d="M12 5.7v12.2M7.7 9h1.9M7.7 12h1.9M14.4 9h1.9M14.4 12h1.9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+              </svg>
+            </span>
+            <span class="button-copy"><b>装配手册</b><small>BUILD GUIDE</small></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Assembly guide modal -->
+      <div id="guideModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+        <div class="modal-scrim" data-close-guide></div>
+        <div class="guide-panel">
+          <div class="guide-head">
+            <div>
+              <div class="eyebrow">ASSEMBLY HANDBOOK / NOVA VISTA 01</div>
+              <h2 id="guideTitle">装配手册 <span>BUILD SEQUENCE</span></h2>
+            </div>
+            <button id="guideClose" class="icon-button close" type="button" aria-label="关闭装配手册">
+              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="m5 5 10 10M15 5 5 15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="guide-body">
+            <section class="guide-steps">
+              <div class="section-heading">
+                <span>01</span>
+                <h3>安装顺序</h3>
+                <em>从基础平台到全景玻璃</em>
+              </div>
+              <div id="guideSteps" class="step-list"></div>
+            </section>
+
+            <aside class="guide-side">
+              <div class="spec-card">
+                <div class="section-heading compact">
+                  <span>02</span>
+                  <h3>整车规格</h3>
+                  <em>SPECIFICATIONS</em>
+                </div>
+                <dl id="guideSpecs" class="spec-list"></dl>
+              </div>
+
+              <div class="principle-card">
+                <div class="section-heading compact">
+                  <span>03</span>
+                  <h3>拆装原则</h3>
+                  <em>SAFETY FIRST</em>
+                </div>
+                <ul>
+                  <li><b>断电</b><span>拆装前关闭电源并拔掉电源线，长按开机键释放余电。</span></li>
+                  <li><b>防静电</b><span>先触摸接地金属，避免直接接触 PCB 金手指与芯片。</span></li>
+                  <li><b>对角紧固</b><span>冷头、主板与冷排螺丝均采用对角、分轮次紧固。</span></li>
+                </ul>
+              </div>
+            </aside>
+          </div>
+
+          <div class="guide-foot">
+            <span><span class="foot-pip"></span>点击任意步骤可定位到对应部件</span>
+            <span>4 mm TEMPERED GLASS · 360 AIO · ATX 3.1</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+      <!-- Intro / loading -->
+      <div id="intro" class="intro">
+        <div class="intro-grid" aria-hidden="true"></div>
+        <div class="intro-inner">
+          <div class="intro-mark" aria-hidden="true">
+            <svg viewBox="0 0 80 80" fill="none">
+              <path d="M40 6 70 23v34L40 74 10 57V23L40 6Z" stroke="rgba(135,235,255,.45)" stroke-width="1" />
+              <path d="M40 16 61 28v24L40 64 19 52V28L40 16Z" stroke="rgba(255,255,255,.15)" stroke-width="1" />
+              <path d="M10 23l30 17 30-17M40 40v34M40 16v24" stroke="rgba(111,224,255,.28)" stroke-width="1" />
+              <circle cx="40" cy="40" r="3" fill="#8df3ff" />
+            </svg>
+          </div>
+          <div class="intro-kicker">INTERACTIVE 3D SHOWROOM</div>
+          <h1>NOVA <span>VISTA</span></h1>
+          <p>无立柱海景房 · 可拆解结构演示</p>
+          <div class="intro-progress"><i></i></div>
+          <div id="introStatus" class="intro-status">正在初始化视口…</div>
+        </div>
+      </div>
+
+      <noscript>
+        <div class="no-script">此 3D 演示需要启用 JavaScript。</div>
+      </noscript>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "nova-vista-3d",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "NOVA VISTA 无立柱海景房机箱 · 3D 可拆解交互展示",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4173",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0",
+    "vite-plugin-singlefile": "^2.3.0"
+  }
+}
