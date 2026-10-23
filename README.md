@@ -2,6 +2,11 @@
 
 一个纯前端、可离线运行的 3D 机箱拆解展示。模型完全由代码程序化生成，没有外部模型或贴图文件；包含 UE 风格自由视角、逐件弹出、自动巡展、部件标注与七步装配手册。
 
+**在线访问：** https://parader-ling.github.io/nova-vista-3d/  
+**GitHub 仓库：** https://github.com/Parader-ling/nova-vista-3d
+
+> GitHub Pages 为公开站点，使用任意电脑/手机的现代浏览器打开即可，不需要安装任何环境。
+
 ![总览](screenshots/01-overview.png)
 
 ## 快速开始
@@ -103,7 +108,7 @@ npm run build
 ## 项目结构
 
 ```
-D:\机箱\
+nova-vista-3d/
 ├─ index.html                 开发入口 / 完整 UI 结构
 ├─ src/
 │  ├─ main.js                 场景、灯光、相机、交互、动画、UI 逻辑
@@ -113,11 +118,27 @@ D:\机箱\
 │     ├─ partData.js          部件装载数据、装配步骤、规格
 │     └─ textures.js          PCB / LCD / RGB / 环境 / 背景等 Canvas 纹理
 ├─ screenshots/               效果截图
+├─ docs/
+│  ├─ index.html              GitHub Pages 入口（构建后的单文件）
+│  └─ .nojekyll               禁用 Jekyll 处理
 ├─ NOVA-VISTA-3D.html        单文件离线版（交付物）
 ├─ 启动演示.cmd              双击打开单文件演示
 ├─ vite.config.js             Vite + 单文件内联配置
-└─ package.json
+├─ package.json
+└─ README.md
 ```
+
+### 更新线上版本
+
+```bat
+npm run build
+copy /Y dist\index.html docs\index.html
+git add docs\index.html
+git commit -m "deploy: update showcase"
+git push
+```
+
+GitHub Pages 会自动重新构建 `docs` 目录。
 
 ## 实现说明
 
